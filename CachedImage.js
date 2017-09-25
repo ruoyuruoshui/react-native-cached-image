@@ -19,6 +19,8 @@ const {
     NetInfo,
     Platform,
     StyleSheet,
+    DeviceEventEmitter,
+    AppState
 } = ReactNative;
 
 const styles = StyleSheet.create({
@@ -42,7 +44,6 @@ function getImageProps(props) {
 const CACHED_IMAGE_REF = 'cachedImage';
 
 class CachedImage extends React.Component {
-
     static propTypes = {
         renderImage: PropTypes.func.isRequired,
         activityIndicatorProps: PropTypes.object.isRequired,
@@ -63,6 +64,8 @@ class CachedImage extends React.Component {
     constructor(props) {
         super(props);
         this._isMounted = false;
+        this._imageCecheCleaned = false;
+        this.listener = null;
         this.state = {
             isCacheable: true,
             cachedImagePath: null,
@@ -89,16 +92,34 @@ class CachedImage extends React.Component {
             });
 
         this.processSource(this.props.source);
+
+        this.listener = DeviceEventEmitter.addListener('cleanImageCache',()=>{
+            this._imageCecheCleaned = true;
+        });
+
+        AppState.addEventListener('change', this._handleAppStateChange.bind(this));
     }
 
     componentWillUnmount() {
         this._isMounted = false;
         NetInfo.isConnected.removeEventListener('connectionChange', this.handleConnectivityChange);
+        this.listener && this.listener.remove();
+        AppState.removeEventListener('change', this._handleAppStateChange.b);
     }
 
     componentWillReceiveProps(nextProps) {
         if (!_.isEqual(this.props.source, nextProps.source)) {
             this.processSource(nextProps.source);
+        }
+    }
+
+    _handleAppStateChange (nextAppState) {
+        if (nextAppState === 'active' && this._imageCecheCleaned) {
+            this.safeSetState({
+                cachedImagePath: null,
+                isCacheable: false
+            });
+            this._imageCecheCleaned = false;
         }
     }
 
