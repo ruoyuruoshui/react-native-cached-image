@@ -11,7 +11,9 @@ const {
     Image,
     ActivityIndicator,
     NetInfo,
-    Platform
+    Platform,
+    DeviceEventEmitter,
+    AppState
 } = ReactNative;
 
 
@@ -97,11 +99,28 @@ const CachedImage = React.createClass({
             });
 
         this.processSource(this.props.source);
+        this.listener = DeviceEventEmitter.addListener('cleanImageCache',()=>{
+            this._imageCecheCleaned = true;
+        });
+
+        AppState.addEventListener('change', this._handleAppStateChange.bind(this));
     },
 
     componentWillUnmount() {
         this._isMounted = false;
         NetInfo.isConnected.removeEventListener('change', this.handleConnectivityChange);
+        this.listener && this.listener.remove();
+        AppState.removeEventListener('change', this._handleAppStateChange);
+    },
+
+    _handleAppStateChange (nextAppState) {
+        if (nextAppState === 'active' && this._imageCecheCleaned) {
+            this.safeSetState({
+                cachedImagePath: null,
+                isCacheable: false
+            });
+            this._imageCecheCleaned = false;
+        }
     },
 
     componentWillReceiveProps(nextProps) {
